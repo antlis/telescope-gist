@@ -1,0 +1,12 @@
+*.swp
+*.swo
+.DS_Store
+tags
+.luarc.json
+.cache/
+
+# Local context files (kept out of the public repo)
+goal.md
+chatgpt-convo.md
+claude-convo.md
+.claude/
