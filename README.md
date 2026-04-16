@@ -51,7 +51,7 @@ Existing options are incomplete:
   end,
   keys = {
     { "<leader>gG", "<cmd>Telescope gist list<cr>", desc = "Gist List" },
-    { "<leader>gc", ":GistCreate<CR>", desc = "Create Gist", mode = { "n", "v" } },
+    { "<leader>gn", ":GistCreate<CR>", desc = "Create Gist", mode = { "n", "v" } },
   },
 }
 ```
