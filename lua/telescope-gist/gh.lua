@@ -41,7 +41,11 @@ local function gh_json(args, cb, opts)
       return
     end
 
-    local decoded_ok, decoded = pcall(vim.json.decode, result.stdout)
+    -- luanil.object decodes JSON `null` as Lua `nil` instead of `vim.NIL`
+    -- (a userdata that's truthy and explodes inside string ops). Many GitHub
+    -- fields are nullable (description, updated_at on edge cases, owner, etc.),
+    -- and forcing every caller to defend against `vim.NIL` is a footgun.
+    local decoded_ok, decoded = pcall(vim.json.decode, result.stdout, { luanil = { object = true } })
     if not decoded_ok then
       vim.schedule(function() cb("failed to parse gh JSON output: " .. tostring(decoded), nil) end)
       return
