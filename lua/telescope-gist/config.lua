@@ -13,10 +13,9 @@ local M = {}
 ---@field dir string           absolute path; defaults to stdpath('cache')/telescope-gist
 
 ---@class TelescopeGistKeymaps
----@field open string          open gist in buffer (default <CR>)
----@field edit string          open + autosync on BufWritePost
+---@field open string          open gist in editable buffer (default <CR>); :w pushes back
 ---@field delete string        delete gist (with confirm)
----@field new string           create new gist from current buffer/selection
+---@field new string           create new gist from current buffer
 ---@field yank_url string      copy gist URL to clipboard
 ---@field refresh string       force re-fetch and replace cache
 
@@ -30,7 +29,6 @@ local defaults = {
   },
   keymaps = {
     open = "<CR>",
-    edit = "<C-e>",
     delete = "<C-d>",
     new = "<C-n>",
     yank_url = "<C-y>",

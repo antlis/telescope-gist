@@ -136,7 +136,6 @@ function M.list(opts)
       attach_mappings = function(_prompt_bufnr, map)
         local km = cfg.keymaps
         map({ "i", "n" }, km.open,     actions.open)
-        map({ "i", "n" }, km.edit,     actions.edit)
         map({ "i", "n" }, km.delete,   actions.delete)
         map({ "i", "n" }, km.new,      actions.new)
         map({ "i", "n" }, km.yank_url, actions.yank_url)

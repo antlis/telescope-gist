@@ -11,15 +11,14 @@ Existing options are incomplete:
 - `gist.nvim` can list/open but editing is clunky and delete is missing.
 - `telescope-github.nvim` shows gists with no syntax highlight in preview and is effectively unmaintained.
 
-`telescope-gist` aims to be the missing piece: a Telescope-native picker with **list, preview, open, edit-on-save, delete, create, and refresh** — all with a fast cache so it never feels slow.
+`telescope-gist` aims to be the missing piece: a Telescope-native picker with **list, preview, open-and-edit, delete, create, and refresh** — all with a fast cache so it never feels slow.
 
 ## Features
 
 - `:Telescope gist list` — picker with visibility, description, file count, relative date
 - Preview with **filetype-aware syntax highlighting**
 - Picker actions:
-  - `<CR>` open gist in buffer (read-only; one buffer per file for multi-file gists)
-  - `<C-e>` edit gist — autosync on `:w` via `PATCH /gists/<id>`
+  - `<CR>` open gist for editing — one buffer per file for multi-file gists; `:w` PATCHes content back to GitHub
   - `<C-d>` delete gist (with confirm)
   - `<C-n>` new gist from current buffer
   - `<C-y>` yank gist URL to clipboard
@@ -60,8 +59,7 @@ require("telescope-gist").setup({
     dir = vim.fn.stdpath("cache") .. "/telescope-gist",
   },
   keymaps = {
-    open     = "<CR>",
-    edit     = "<C-e>",
+    open     = "<CR>",      -- opens for editing; :w pushes back via PATCH /gists/<id>
     delete   = "<C-d>",
     new      = "<C-n>",
     yank_url = "<C-y>",

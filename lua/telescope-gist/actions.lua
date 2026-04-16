@@ -29,29 +29,19 @@ local function get_or_create_buf(name)
   return b
 end
 
----Populate a buffer with one gist file. `editable=false` is the read-only
----view used by `open`; `editable=true` is the autosync setup used by `edit`.
----
----Edit-mode uses `buftype = "acwrite"` so `:w` fires our BufWriteCmd autocmd
----instead of trying to write the `gist://` URI to disk.
+---Populate a buffer with one gist file in edit mode.
+---`buftype = "acwrite"` makes `:w` fire our BufWriteCmd autocmd (which pushes
+---to GitHub) instead of trying to write the `gist://` URI to disk.
 ---@param bufnr integer
 ---@param content string
 ---@param filename string
----@param opts { editable: boolean }
-local function populate_buffer(bufnr, content, filename, opts)
+local function populate_buffer(bufnr, content, filename)
   vim.bo[bufnr].modifiable = true
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(content, "\n", { plain = true }))
   vim.bo[bufnr].modified = false
   vim.bo[bufnr].swapfile = false
   vim.bo[bufnr].bufhidden = "hide"
-
-  if opts.editable then
-    vim.bo[bufnr].buftype = "acwrite"
-    vim.bo[bufnr].modifiable = true
-  else
-    vim.bo[bufnr].buftype = "nofile"
-    vim.bo[bufnr].modifiable = false
-  end
+  vim.bo[bufnr].buftype = "acwrite"
 
   local ft = vim.filetype.match({ filename = filename })
   if ft and ft ~= "" then
@@ -140,10 +130,7 @@ end
 
 ---@param id string
 ---@param opts { editable: boolean }|nil
-local function open_gist(id, opts)
-  opts = opts or {}
-  local editable = opts.editable == true
-
+local function open_gist(id)
   local function show(files)
     if vim.tbl_isempty(files) then
       vim.notify("telescope-gist: gist " .. id .. " has no files", vim.log.levels.WARN)
@@ -160,19 +147,16 @@ local function open_gist(id, opts)
 
       -- Defensive: if the buffer is already open with unsaved local edits,
       -- preserve them. Repopulating would silently drop the user's work.
-      -- Autocmd / metadata are already in place from the prior edit-open.
-      local has_unsaved_edits = vim.bo[bufnr].modified
-      if not has_unsaved_edits then
-        populate_buffer(bufnr, f.content or "", name, { editable = editable })
+      -- Autocmd / metadata are already in place from the prior open.
+      if not vim.bo[bufnr].modified then
+        populate_buffer(bufnr, f.content or "", name)
 
         vim.b[bufnr].gist_id = id
         vim.b[bufnr].gist_filename = name
         vim.b[bufnr].gist_truncated = f.truncated == true
         vim.b[bufnr].gist_raw_url = f.raw_url
 
-        if editable then
-          install_sync_autocmd(bufnr)
-        end
+        install_sync_autocmd(bufnr)
       end
 
       first_buf = first_buf or bufnr
@@ -203,8 +187,10 @@ local function open_gist(id, opts)
   end)
 end
 
----Open the selected gist in new buffers (read-only).
+---Open the selected gist in editable buffers wired to autosync on `:w`.
 ---Multi-file gists open one buffer per file; the first (alphabetical) is shown.
+---Each buffer has `buftype=acwrite` and a BufWriteCmd autocmd that PATCHes
+---content back via `gh.edit` — opening is non-destructive, only `:w` pushes.
 ---@param prompt_bufnr integer
 function M.open(prompt_bufnr)
   local entry = action_state.get_selected_entry()
@@ -214,20 +200,6 @@ function M.open(prompt_bufnr)
     return
   end
   open_gist(entry.value.id)
-end
-
----Open the gist in editable buffers wired to autosync on `:w`.
----Same buffer-per-file model as `open`, but each buffer has `buftype=acwrite`
----and a BufWriteCmd autocmd that PATCHes content back via `gh.edit`.
----@param prompt_bufnr integer
-function M.edit(prompt_bufnr)
-  local entry = action_state.get_selected_entry()
-  actions.close(prompt_bufnr)
-  if not entry or not entry.value or not entry.value.id then
-    vim.notify("telescope-gist: no gist selected", vim.log.levels.WARN)
-    return
-  end
-  open_gist(entry.value.id, { editable = true })
 end
 
 ---Delete the selected gist after a y/N confirmation.
