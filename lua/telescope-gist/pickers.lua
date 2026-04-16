@@ -67,13 +67,17 @@ local function first_filename(files)
 end
 
 ---Telescope row displayer. Columns:
----  visibility (1ch) | description (40ch) | file count (7ch) | updated (rest)
+---  visibility (1ch) | filename (25ch) | files (7ch) | date (8ch) | description (rest)
+---Filename is always visible; description gets whatever width remains and
+---truncates first on narrow windows (correct priority: filename identifies,
+---description annotates).
 local displayer = entry_display.create({
   separator = "  ",
   items = {
     { width = 1 },
-    { width = 40 },
+    { width = 25 },
     { width = 7 },
+    { width = 8 },
     { remaining = true },
   },
 })
@@ -84,22 +88,16 @@ local displayer = entry_display.create({
 local function entry_maker(gist)
   local files = gist.files or {}
   local file_count = vim.tbl_count(files)
-  local first_name = first_filename(files)
+  local first_name = first_filename(files) or gist.id or ""
+  local desc = (gist.description and gist.description ~= "") and gist.description or ""
 
-  local desc = (gist.description and gist.description ~= "") and gist.description
-    or first_name
-    or gist.id
-
-  -- "P"/"S" rather than nerd-font icons keeps this dependency-free; users with
-  -- nerd fonts can override via setup() once we expose the formatter (TODO).
   local vis_label = gist.public and "P" or "S"
   local vis_hl    = gist.public and "Special" or "Comment"
 
   local files_label = file_count == 1 and "1 file" or (file_count .. " files")
 
-  -- ordinal = everything searchable: description + id + every filename. Lets
-  -- the user fuzzy-match by either gist title or any contained file name.
-  local ordinal_parts = { gist.description or "", gist.id or "" }
+  -- ordinal = everything searchable: description + id + every filename.
+  local ordinal_parts = { desc, gist.id or "" }
   for name in pairs(files) do
     ordinal_parts[#ordinal_parts + 1] = name
   end
@@ -110,9 +108,10 @@ local function entry_maker(gist)
     display = function()
       return displayer({
         { vis_label, vis_hl },
-        desc,
+        first_name,
         { files_label, "Number" },
         { relative_time(gist.updated_at), "Comment" },
+        { desc, "Comment" },
       })
     end,
   }
