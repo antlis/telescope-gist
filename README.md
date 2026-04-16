@@ -33,7 +33,9 @@ Existing options are incomplete:
 - [`telescope.nvim`](https://github.com/nvim-telescope/telescope.nvim)
 - [`plenary.nvim`](https://github.com/nvim-lua/plenary.nvim) (transitively required by Telescope)
 
-## Installation (LazyVim / lazy.nvim)
+## Installation
+
+### lazy.nvim / LazyVim
 
 ```lua
 {
@@ -54,6 +56,54 @@ Existing options are incomplete:
     { "<leader>gn", ":GistCreate<CR>", desc = "Create Gist", mode = { "n", "v" } },
   },
 }
+```
+
+### packer.nvim
+
+```lua
+use {
+  "antlis/telescope-gist",
+  requires = { "nvim-telescope/telescope.nvim", "nvim-lua/plenary.nvim" },
+  config = function()
+    require("telescope-gist").setup({})
+    require("telescope").load_extension("gist")
+  end,
+}
+```
+
+### vim-plug
+
+```vim
+Plug 'nvim-lua/plenary.nvim'
+Plug 'nvim-telescope/telescope.nvim'
+Plug 'antlis/telescope-gist'
+```
+
+Then in your `init.lua`:
+
+```lua
+require("telescope-gist").setup({})
+require("telescope").load_extension("gist")
+```
+
+### mini.deps
+
+```lua
+MiniDeps.add({
+  source = "antlis/telescope-gist",
+  depends = { "nvim-telescope/telescope.nvim", "nvim-lua/plenary.nvim" },
+})
+require("telescope-gist").setup({})
+require("telescope").load_extension("gist")
+```
+
+### Manual / other managers
+
+Clone the repo anywhere on your `runtimepath` and ensure `telescope.nvim` + `plenary.nvim` are installed. Then add to your config:
+
+```lua
+require("telescope-gist").setup({})
+require("telescope").load_extension("gist")
 ```
 
 ## Configuration
