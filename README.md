@@ -3,8 +3,6 @@
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) extension for managing
 your GitHub Gists from inside Neovim — built for [LazyVim](https://www.lazyvim.org/), works anywhere.
 
-> **Status:** scaffold only. Nothing is implemented yet — see `TODO`s in each module.
-
 ## Why
 
 Existing options are incomplete:
@@ -15,17 +13,17 @@ Existing options are incomplete:
 
 `telescope-gist` aims to be the missing piece: a Telescope-native picker with **list, preview, open, edit-on-save, delete, create, and refresh** — all with a fast cache so it never feels slow.
 
-## Features (planned for v0.1)
+## Features
 
-- `:Telescope gist list` — picker with description, filename(s), visibility, updated date
+- `:Telescope gist list` — picker with visibility, description, file count, relative date
 - Preview with **filetype-aware syntax highlighting**
 - Picker actions:
-  - `<CR>` open gist in buffer
-  - `<C-e>` edit gist (autosync on `:w` via `gh gist edit`)
+  - `<CR>` open gist in buffer (read-only; one buffer per file for multi-file gists)
+  - `<C-e>` edit gist — autosync on `:w` via `PATCH /gists/<id>`
   - `<C-d>` delete gist (with confirm)
-  - `<C-n>` new gist from current buffer / visual selection
+  - `<C-n>` new gist from current buffer
   - `<C-y>` yank gist URL to clipboard
-  - `<C-r>` force refresh cache
+  - `<C-r>` force-refresh cached list
 - **Two-layer cache** (memory + disk JSON, TTL 10 min) — picker opens instantly after first load, even across Neovim restarts
 
 ## Requirements
