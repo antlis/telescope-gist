@@ -261,11 +261,8 @@ function M.delete(prompt_bufnr)
 end
 
 ---Create a new gist from the buffer the picker was launched from.
----Closes the picker first (sequential prompts behave better without the
----picker in the background, and the post-create UX is "back to your code",
----not "back to the gist list").
----TODO(visual-selection): preserve `'<` `'>` marks across picker open so
----a user can gist a subset of their buffer. v0.1 always uses full buffer.
+---Closes the picker first, then delegates to the shared `init.create()` so
+---the creation logic lives in one place (also used by `:GistCreate`).
 ---@param prompt_bufnr integer
 function M.new(prompt_bufnr)
   -- The window the picker was launched from holds the buffer we want to gist.
@@ -276,61 +273,12 @@ function M.new(prompt_bufnr)
     return
   end
 
-  local source_buf = vim.api.nvim_win_get_buf(source_win)
-  local lines = vim.api.nvim_buf_get_lines(source_buf, 0, -1, false)
-  local content = table.concat(lines, "\n")
-  if content == "" then
-    vim.notify("telescope-gist: source buffer is empty", vim.log.levels.WARN)
-    return
-  end
-
-  local source_name = vim.api.nvim_buf_get_name(source_buf)
-  local default_filename = (source_name ~= "" and vim.fs.basename(source_name)) or "gistfile1.txt"
-
   actions.close(prompt_bufnr)
 
-  vim.ui.input({ prompt = "Gist filename: ", default = default_filename }, function(filename)
-    if not filename or filename == "" then return end
+  -- Focus the source window so init.create() reads the correct buffer.
+  vim.api.nvim_set_current_win(source_win)
 
-    vim.ui.input({ prompt = "Description (optional): " }, function(description)
-      if description == nil then return end -- Esc; empty string is a valid description
-
-      -- vim.fn.confirm: button 1 = Secret (default), button 2 = Public.
-      -- Synchronous + dependency-free; vim.ui.select varies wildly across plugins
-      -- (fzf-lua, dressing, snacks, builtin) and a yes/no dialog is more predictable.
-      local choice = vim.fn.confirm("Gist visibility?", "&Secret\n&Public", 1)
-      if choice == 0 then return end
-      local is_public = choice == 2
-
-      gh.create({
-        filename = filename,
-        content = content,
-        description = description,
-        public = is_public,
-      }, function(err, gist)
-        if err then
-          vim.notify("telescope-gist: create failed: " .. err, vim.log.levels.ERROR)
-          return
-        end
-
-        -- Prepend: GitHub returns gists sorted by updated_at desc, and the
-        -- brand-new gist is the most recent — putting it at index 1 keeps
-        -- our cache identical to what a fresh `gh.list` would return.
-        cache.mutate("gists", function(list)
-          local out = { gist }
-          for _, g in ipairs(list or {}) do out[#out + 1] = g end
-          return out
-        end)
-
-        if gist.html_url then
-          vim.fn.setreg("+", gist.html_url)
-          vim.notify("telescope-gist: created " .. gist.html_url .. " (URL copied)")
-        else
-          vim.notify("telescope-gist: created gist " .. (gist.id or "<unknown id>"))
-        end
-      end)
-    end)
-  end)
+  require("telescope-gist").create({ range = 0 })
 end
 
 ---Yank the gist's HTML URL into the clipboard register.

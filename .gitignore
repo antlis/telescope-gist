@@ -6,6 +6,7 @@ tags
 .cache/
 
 # Local context files (kept out of the public repo)
+CONTEXT.md
 goal.md
 chatgpt-convo.md
 claude-convo.md

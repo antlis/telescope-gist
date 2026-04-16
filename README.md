@@ -17,6 +17,7 @@ Existing options are incomplete:
 
 - `:Telescope gist list` — picker with visibility, description, file count, relative date
 - Preview with **filetype-aware syntax highlighting**
+- `:GistCreate` — create a gist from the current buffer or visual selection
 - Picker actions:
   - `<CR>` open gist for editing — one buffer per file for multi-file gists; `:w` PATCHes content back to GitHub
   - `<C-d>` delete gist (with confirm)
@@ -37,13 +38,20 @@ Existing options are incomplete:
 ```lua
 {
   "antlis/telescope-gist",
-  dependencies = { "nvim-telescope/telescope.nvim" },
+  dependencies = {
+    {
+      "nvim-telescope/telescope.nvim",
+      cmd = "Telescope",
+      dependencies = { "nvim-lua/plenary.nvim" },
+    },
+  },
   config = function()
-    require("telescope-gist").setup({}) -- defaults shown below
+    require("telescope-gist").setup({})
     require("telescope").load_extension("gist")
   end,
   keys = {
-    { "<leader>gG", "<cmd>Telescope gist list<cr>", desc = "Gists" },
+    { "<leader>gG", "<cmd>Telescope gist list<cr>", desc = "Gist List" },
+    { "<leader>gc", ":GistCreate<CR>", desc = "Create Gist", mode = { "n", "v" } },
   },
 }
 ```
