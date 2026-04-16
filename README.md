@@ -17,7 +17,7 @@ Existing options are incomplete:
 
 - `:Telescope gist list` — picker with visibility, description, file count, relative date
 - Preview with **filetype-aware syntax highlighting**
-- `:GistCreate` — create a gist from the current buffer or visual selection
+- `:GistCreate` — create a gist from the current buffer; supports visual selection (`:'<,'>GistCreate` or `<leader>gn` in visual mode)
 - Picker actions:
   - `<CR>` open gist for editing — one buffer per file for multi-file gists; `:w` PATCHes content back to GitHub
   - `<C-d>` delete gist (with confirm)
