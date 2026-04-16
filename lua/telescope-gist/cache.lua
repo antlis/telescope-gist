@@ -51,7 +51,9 @@ local function read_disk(path)
   local body = f:read("*a")
   f:close()
 
-  local ok, decoded = pcall(vim.json.decode, body)
+  -- Mirror gh.lua: decode JSON nulls as Lua nil so cached records don't
+  -- bring back vim.NIL userdata that nothing in the picker code is ready for.
+  local ok, decoded = pcall(vim.json.decode, body, { luanil = { object = true } })
   if not ok or type(decoded) ~= "table" then return nil end
   if decoded.version ~= SCHEMA_VERSION then return nil end
   if type(decoded.fetched_at) ~= "number" then return nil end
