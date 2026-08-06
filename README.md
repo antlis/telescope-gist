@@ -5,7 +5,7 @@ your GitHub Gists from inside Neovim — built for [LazyVim](https://www.lazyvim
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/OW6rlNlj65B3uZ3c.svg)](https://asciinema.org/a/OW6rlNlj65B3uZ3c)
+[![demo](docs/demo.gif)](https://asciinema.org/a/OW6rlNlj65B3uZ3c)
 
 ## Why
 
