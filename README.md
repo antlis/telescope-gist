@@ -3,6 +3,10 @@
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) extension for managing
 your GitHub Gists from inside Neovim — built for [LazyVim](https://www.lazyvim.org/), works anywhere.
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/OW6rlNlj65B3uZ3c.svg)](https://asciinema.org/a/OW6rlNlj65B3uZ3c)
+
 ## Why
 
 Existing options are incomplete:
