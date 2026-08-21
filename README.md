@@ -1,5 +1,3 @@
-
-
 # telescope-gist
 
 A [Telescope](https://github.com/nvim-telescope/telescope.nvim) extension for managing
