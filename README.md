@@ -154,7 +154,7 @@ lua/
 ├── telescope/_extensions/gist.lua   -- Telescope extension entry point
 └── telescope-gist/
     ├── init.lua          -- public API: setup(), list()
-    ├── config.lua        -- defaults + tbl_deep_extend merge
+    ├── config.lua        -- defaults + vim.tbl_deep_extend merge
     ├── gh.lua            -- async wrapper around `gh` CLI
     ├── cache.lua         -- two-layer cache (memory + disk TTL)
     ├── pickers.lua       -- Telescope picker construction
