@@ -75,8 +75,7 @@ end
 ---
 ---Backed by `gh api /gists?per_page=N`, which returns the canonical REST API
 ---JSON shape. Because callers consume that shape directly, no normalization
----happens here — and the v0.2 swap to `plenary.curl + gh auth token` will not
----touch this function's output at all.
+---happens here — the `api` backend (api.lua) returns the identical shape.
 ---
 ---Note: `gh gist list --json` is *not* supported by the gh CLI as of v2.87.x;
 ---`gh api /gists` is the only path that gives structured data.
@@ -85,7 +84,7 @@ end
 function M.list(opts, cb)
   -- TODO(pagination): GitHub caps per_page at 100. For limit > 100 we need to
   -- follow the `Link: <...>; rel="next"` header (use `gh api --paginate` or
-  -- read headers via `gh api -i`). For v0.1 we cap at 100 silently.
+  -- read headers via `gh api -i`). For now we cap at 100 silently.
   local per_page = math.min(opts.limit or 100, 100)
 
   local args = {
@@ -107,9 +106,9 @@ end
 ---
 ---File contents are returned inline by GitHub up to ~1MB per file. Larger files
 ---come back with `truncated = true` and an empty/partial `content`; the full
----bytes have to be fetched separately from `raw_url`. v0.1 surfaces the
----truncated payload as-is and signals the condition via a second return value
----so callers can decide whether to follow up.
+---bytes have to be fetched separately from `raw_url`. This function surfaces
+---the truncated payload as-is; callers check `truncated` and follow up (see
+---`resolve_truncated` in actions.lua and `M.fetch_raw` below).
 ---@param id string
 ---@param cb fun(err: string|nil, files: table<string, { content: string, truncated: boolean, raw_url: string, language: string|nil, size: integer|nil }>|nil)
 function M.view(id, cb)
