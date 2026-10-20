@@ -74,10 +74,9 @@ local function install_sync_autocmd(bufnr)
         return
       end
 
-      -- Truncated content was only the first ~1MB; pushing it back would
-      -- silently overwrite the full gist with the prefix. Refuse rather than
-      -- corrupt. TODO(v0.2): fetch raw_url to load full bytes before allowing
-      -- edits, so this guard becomes unnecessary.
+      -- open_gist loads full bytes from raw_url, so this only trips when that
+      -- fetch failed. Pushing the ~1MB prefix would silently overwrite the
+      -- full gist, so refuse rather than corrupt.
       if vim.b[bufnr].gist_truncated then
         vim.notify(
           ("telescope-gist: refusing to push truncated file (>1MB). Use `gh gist edit %s` directly."):format(id),
@@ -128,6 +127,38 @@ local function install_sync_autocmd(bufnr)
   })
 end
 
+---Replace truncated file contents (API caps inline content at ~1MB) with the
+---full bytes from each file's `raw_url`. Files whose fetch fails stay
+---truncated, which keeps the push guard in install_sync_autocmd active.
+---Persists the resolved content to the cache.
+---@param id string
+---@param files table
+---@param cb fun(files: table)
+local function resolve_truncated(id, files, cb)
+  local pending = 0
+  local changed = false
+  for name, f in pairs(files) do
+    if f.truncated and f.raw_url then
+      pending = pending + 1
+      gh.fetch_raw(f.raw_url, function(err, body)
+        if err then
+          vim.notify(("telescope-gist: could not load full %s: %s"):format(name, err), vim.log.levels.WARN)
+        else
+          f.content = body
+          f.truncated = false
+          changed = true
+        end
+        pending = pending - 1
+        if pending == 0 then
+          if changed then cache.set(CACHE_PREFIX .. id, files) end
+          cb(files)
+        end
+      end)
+    end
+  end
+  if pending == 0 then cb(files) end
+end
+
 ---@param id string
 ---@param opts { editable: boolean }|nil
 local function open_gist(id)
@@ -173,7 +204,7 @@ local function open_gist(id)
 
   local cached = cache.get(CACHE_PREFIX .. id)
   if cached then
-    show(cached.data)
+    resolve_truncated(id, cached.data, show)
     return
   end
 
@@ -183,7 +214,7 @@ local function open_gist(id)
       return
     end
     cache.set(CACHE_PREFIX .. id, files)
-    show(files)
+    resolve_truncated(id, files, show)
   end)
 end
 

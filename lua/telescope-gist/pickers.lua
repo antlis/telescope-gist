@@ -117,6 +117,39 @@ local function entry_maker(gist)
   }
 end
 
+---API backend: warm the `gist:<id>` content cache for the newest gists with a
+---single GraphQL call. Best effort — failures are silent, the previewer
+---falls back to per-gist fetches.
+---@param gists Gist[]
+local function prefetch_contents(gists)
+  if not gh.uses_api() or not config.get().cache.enabled then return end
+  gh.prefetch(gists, function(err, by_id)
+    if err then return end
+    for id, files in pairs(by_id) do
+      cache.set("gist:" .. id, files)
+    end
+  end)
+end
+
+---Fetch the gist list and store it in the cache. On the API backend, a cached
+---ETag is sent as If-None-Match so an unchanged list costs no payload.
+---@param cb fun(err: string|nil, gists: Gist[]|nil, changed: boolean|nil)
+local function fetch_list(cb)
+  local cfg = config.get()
+  local cached = cfg.cache.enabled and gh.uses_api() and cache.get(CACHE_KEY) or nil
+
+  gh.list({ limit = cfg.limit, etag = cached and cached.etag or nil }, function(err, gists, meta)
+    if err then return cb(err) end
+    if meta and meta.not_modified and cached then
+      cache.touch(CACHE_KEY)
+      return cb(nil, cached.data, false)
+    end
+    if cfg.cache.enabled then cache.set(CACHE_KEY, gists, meta and meta.etag) end
+    prefetch_contents(gists)
+    cb(nil, gists, true)
+  end)
+end
+
 ---Open the gist list picker.
 ---@param opts table|nil
 function M.list(opts)
@@ -124,7 +157,7 @@ function M.list(opts)
   local cfg = config.get()
 
   local function open_with(gists)
-    pickers.new(opts, {
+    local picker = pickers.new(opts, {
       prompt_title = "Gists",
       finder = finders.new_table({
         results = gists,
@@ -141,25 +174,36 @@ function M.list(opts)
         map({ "i", "n" }, km.refresh,  actions.refresh)
         return true -- keep default <CR> bound to whatever map returned for `open`
       end,
-    }):find()
+    })
+    picker:find()
+    return picker
   end
 
-  -- TODO(stale-while-revalidate): currently we only fetch when there's no
-  -- cache at all. Next iteration: if cached but `cache.is_stale(...)`, open
-  -- with cached data immediately AND kick off a background refresh that swaps
-  -- the picker's finder via M.refresh-style logic when it lands.
   local cached = cfg.cache.enabled and cache.get(CACHE_KEY) or nil
   if cached then
-    open_with(cached.data)
+    local picker = open_with(cached.data)
+
+    -- Stale-while-revalidate (API backend only: a conditional request makes
+    -- the revalidation cheap). The CLI backend keeps serving cache until the
+    -- user force-refreshes.
+    if gh.uses_api() and cache.is_stale(CACHE_KEY, cfg.cache.ttl_minutes) then
+      fetch_list(function(err, gists, changed)
+        if err or not changed then return end
+        if not vim.api.nvim_buf_is_valid(picker.prompt_bufnr) then return end
+        picker:refresh(
+          finders.new_table({ results = gists, entry_maker = entry_maker }),
+          { reset_prompt = false }
+        )
+      end)
+    end
     return
   end
 
-  gh.list({ limit = cfg.limit }, function(err, gists)
+  fetch_list(function(err, gists)
     if err then
       vim.notify("telescope-gist: " .. err, vim.log.levels.ERROR)
       return
     end
-    if cfg.cache.enabled then cache.set(CACHE_KEY, gists) end
     open_with(gists)
   end)
 end
@@ -186,19 +230,17 @@ end
 ---it's keyed by gist id and stays valid until that specific gist mutates.
 ---@param prompt_bufnr integer
 function M.refresh(prompt_bufnr)
-  local cfg = config.get()
   local current_picker = action_state.get_current_picker(prompt_bufnr)
   if not current_picker then return end
 
   cache.invalidate(CACHE_KEY)
   vim.notify("telescope-gist: refreshing…")
 
-  gh.list({ limit = cfg.limit }, function(err, gists)
+  fetch_list(function(err, gists)
     if err then
       vim.notify("telescope-gist: " .. err, vim.log.levels.ERROR)
       return
     end
-    if cfg.cache.enabled then cache.set(CACHE_KEY, gists) end
 
     -- TODO(smart-invalidation): for any cached gist whose updated_at advanced,
     -- drop its `gist:<id>` content cache so the next preview/open re-fetches.

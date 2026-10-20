@@ -3,9 +3,14 @@
 local M = {}
 
 ---@class TelescopeGistConfig
----@field limit integer        max gists to fetch (passed to `gh gist list --limit`)
+---@field limit integer        max gists to fetch (per_page, capped at 100)
+---@field backend "cli"|"api"  "cli" (default) shells out to `gh`; "api" uses REST/GraphQL via plenary.curl (ETags, fewer round-trips)
+---@field api TelescopeGistApiConfig
 ---@field cache TelescopeGistCacheConfig
 ---@field keymaps TelescopeGistKeymaps
+
+---@class TelescopeGistApiConfig
+---@field prefetch_count integer  newest gists whose contents are batch-fetched via GraphQL (0 disables; max 100)
 
 ---@class TelescopeGistCacheConfig
 ---@field enabled boolean
@@ -22,6 +27,10 @@ local M = {}
 ---@type TelescopeGistConfig
 local defaults = {
   limit = 100,
+  backend = "cli",
+  api = {
+    prefetch_count = 10,
+  },
   cache = {
     enabled = true,
     ttl_minutes = 10,

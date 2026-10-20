@@ -24,6 +24,7 @@ local SCHEMA_VERSION = 1
 ---@class CacheEntry
 ---@field fetched_at integer  -- os.time()
 ---@field data any
+---@field etag string|nil     -- validator for If-None-Match (api backend only)
 
 ---@type table<string, CacheEntry>
 local mem = {}
@@ -58,7 +59,7 @@ local function read_disk(path)
   if decoded.version ~= SCHEMA_VERSION then return nil end
   if type(decoded.fetched_at) ~= "number" then return nil end
 
-  return { fetched_at = decoded.fetched_at, data = decoded.data }
+  return { fetched_at = decoded.fetched_at, data = decoded.data, etag = decoded.etag }
 end
 
 ---Atomic write: encode -> tmpfile -> rename. The rename is atomic on POSIX,
@@ -76,6 +77,7 @@ local function write_disk(path, entry)
     version = SCHEMA_VERSION,
     fetched_at = entry.fetched_at,
     data = entry.data,
+    etag = entry.etag,
   })
   if not enc_ok then return false end
 
@@ -110,8 +112,9 @@ end
 
 ---@param key string
 ---@param data any
-function M.set(key, data)
-  local entry = { fetched_at = os.time(), data = data }
+---@param etag string|nil
+function M.set(key, data, etag)
+  local entry = { fetched_at = os.time(), data = data, etag = etag }
   mem[key] = entry
   -- Disk write failures must never break the picker. Memory cache still works.
   pcall(write_disk, key_to_path(key), entry)
@@ -124,6 +127,15 @@ function M.is_stale(key, ttl_minutes)
   local entry = M.get(key)
   if not entry then return true end
   return (os.time() - entry.fetched_at) > (ttl_minutes * 60)
+end
+
+---Mark an entry as freshly validated (server answered 304 Not Modified).
+---@param key string
+function M.touch(key)
+  local entry = M.get(key)
+  if not entry then return end
+  entry.fetched_at = os.time()
+  pcall(write_disk, key_to_path(key), entry)
 end
 
 ---Drop both memory and disk copies.
@@ -142,6 +154,7 @@ function M.mutate(key, updater)
   local entry = M.get(key)
   if not entry then return end
   entry.data = updater(entry.data)
+  entry.etag = nil -- local edit: the old validator no longer describes this data
   entry.fetched_at = os.time()
   mem[key] = entry
   pcall(write_disk, key_to_path(key), entry)

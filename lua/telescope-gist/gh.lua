@@ -1,9 +1,12 @@
 -- Thin async wrapper around the `gh` CLI.
 -- All functions are non-blocking; callers receive results via callbacks.
 --
--- v0.2 plan (hybrid): swap implementations to GitHub REST/GraphQL via
--- plenary.curl, using `gh auth token` for the bearer. Public shapes below
--- already match the REST API field names so callers don't need to change.
+-- Backend boundary: the functions defined here are the `gh` CLI backend
+-- (default). With `backend = "api"` in config, the exported functions at the
+-- bottom of this file dispatch to api.lua (REST/GraphQL via plenary.curl).
+-- Both return the same REST-shaped data, so callers don't care which is active.
+
+local config = require("telescope-gist.config")
 
 local M = {}
 
@@ -212,6 +215,63 @@ function M.create(opts, cb)
     end,
     { stdin = body }
   )
+end
+
+local warned_fallback = false
+
+---True when the API backend is selected and has not failed to find a token.
+---@return boolean
+function M.uses_api()
+  return config.get().backend == "api" and not require("telescope-gist.api").is_unavailable()
+end
+
+-- Route every public call to the configured backend. Extra args (etag opts)
+-- are ignored by the CLI backend, which has no conditional requests.
+-- If the API backend can't find a token, warn once and use the CLI instead.
+for _, name in ipairs({ "list", "view", "edit", "delete", "create" }) do
+  local cli_fn = M[name]
+  M[name] = function(...)
+    if not M.uses_api() then return cli_fn(...) end
+
+    local args = vim.F.pack_len(...)
+    local api = require("telescope-gist.api")
+    api.ensure_token(function(ok)
+      if ok then return api[name](vim.F.unpack_len(args)) end
+      if not warned_fallback then
+        warned_fallback = true
+        vim.notify("telescope-gist: no GitHub token for backend = \"api\"; falling back to the gh CLI", vim.log.levels.WARN)
+      end
+      cli_fn(vim.F.unpack_len(args))
+    end)
+  end
+end
+
+---API-backend only: batch-fetch contents of the newest gists in one GraphQL
+---call. No-op (empty result) otherwise.
+---@param gists Gist[]
+---@param cb fun(err: string|nil, by_id: table<string, table>|nil)
+function M.prefetch(gists, cb)
+  if not M.uses_api() then return cb(nil, {}) end
+  require("telescope-gist.api").prefetch(gists, cb)
+end
+
+---Download a file's full bytes from its `raw_url` (used for >1MB truncated
+---files). Raw gist URLs need no auth, even for secret gists.
+---@param url string
+---@param cb fun(err: string|nil, body: string|nil)
+function M.fetch_raw(url, cb)
+  local ok, err = pcall(require("plenary.curl").get, url, {
+    callback = function(res)
+      vim.schedule(function()
+        if res.status ~= 200 then return cb("HTTP " .. tostring(res.status)) end
+        cb(nil, res.body or "")
+      end)
+    end,
+    on_error = function(e)
+      vim.schedule(function() cb(tostring(e and e.message or "curl error")) end)
+    end,
+  })
+  if not ok then vim.schedule(function() cb(tostring(err)) end) end
 end
 
 return M

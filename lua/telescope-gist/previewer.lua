@@ -11,6 +11,7 @@
 
 local previewers = require("telescope.previewers")
 local cache = require("telescope-gist.cache")
+local config = require("telescope-gist.config")
 local gh = require("telescope-gist.gh")
 
 local M = {}
@@ -76,12 +77,27 @@ function M.build()
       local cached = cache.get(CACHE_PREFIX .. gist.id)
       if cached then
         maybe_render(cached.data)
+
+        -- API backend: revalidate stale content with If-None-Match. A 304
+        -- costs no payload; a 200 means someone edited the gist elsewhere.
+        local cfg = config.get()
+        if gh.uses_api() and cache.is_stale(CACHE_PREFIX .. gist.id, cfg.cache.ttl_minutes) then
+          gh.view(gist.id, function(err, files, meta)
+            if err then return end
+            if meta and meta.not_modified then
+              cache.touch(CACHE_PREFIX .. gist.id)
+              return
+            end
+            cache.set(CACHE_PREFIX .. gist.id, files, meta and meta.etag)
+            maybe_render(files)
+          end, { etag = cached.etag })
+        end
         return
       end
 
       vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Loading…" })
 
-      gh.view(gist.id, function(err, files)
+      gh.view(gist.id, function(err, files, meta)
         -- gh.view's callback is already on the main loop (gh_json schedules it).
         if err then
           if not vim.api.nvim_buf_is_valid(bufnr) then return end
@@ -94,7 +110,7 @@ function M.build()
           return
         end
 
-        cache.set(CACHE_PREFIX .. gist.id, files)
+        cache.set(CACHE_PREFIX .. gist.id, files, meta and meta.etag)
         maybe_render(files)
       end)
     end,
